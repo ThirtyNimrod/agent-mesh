@@ -1,0 +1,103 @@
+# agent-mesh — spins up the 3 MCP servers + the LangGraph orchestrator.
+#
+# Quick start:
+#   cp .env.example .env
+#   docker compose up --build
+#
+# Ollama runs on the HOST (native GPU), not in a container. The services reach it
+# at http://host.docker.internal:11434, so make sure Ollama is listening on
+# 0.0.0.0:11434 first (see docs/operations/SETUP.md). The `extra_hosts` entries make
+# host.docker.internal resolve on Linux too; Docker Desktop provides it natively
+# on Windows/macOS.
+#
+# Server ports are intentionally NOT published to the host — only the orchestrator
+# talks to them, over the compose network. To poke a server with the MCP Inspector,
+# uncomment its `ports:` block below and re-run `docker compose up`.
+
+name: agent-mesh
+
+services:
+  memory-server:
+    build:
+      context: .
+      dockerfile: servers/Dockerfile.memory
+    environment:
+      - OLLAMA_URL=http://host.docker.internal:11434
+      - EMBED_MODEL=${EMBED_MODEL:-nomic-embed-text}
+      - EMBED_DIM=${EMBED_DIM:-768}
+      - MEMORY_DB=/data/memory.db
+      - MEMORY_INDEX=/data/memory.faiss
+    volumes:
+      - memdata:/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # ports:                # uncomment for MCP Inspector / local debugging
+    #   - "8001:8001"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket,sys; socket.create_connection(('localhost',8001),3); sys.exit(0)"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  file-bridge-server:
+    build:
+      context: .
+      dockerfile: servers/Dockerfile.filebridge
+    environment:
+      - FILES_DIR=/data
+    volumes:
+      - filedata:/data
+    # ports:
+    #   - "8002:8002"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket,sys; socket.create_connection(('localhost',8002),3); sys.exit(0)"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  prompt-audit-server:
+    build:
+      context: .
+      dockerfile: servers/Dockerfile.audit
+    environment:
+      - AUDIT_DB=/data/audit.db
+      - PRICE_IN_PER_1M=${PRICE_IN_PER_1M:-10.0}
+      - PRICE_OUT_PER_1M=${PRICE_OUT_PER_1M:-30.0}
+      - PRICE_CURRENCY=${PRICE_CURRENCY:-USD}
+    volumes:
+      - auditdata:/data
+    # ports:
+    #   - "8003:8003"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket,sys; socket.create_connection(('localhost',8003),3); sys.exit(0)"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  orchestrator:
+    build:
+      context: .
+      dockerfile: agent/Dockerfile
+    environment:
+      - OLLAMA_URL=http://host.docker.internal:11434
+      - CHAT_MODEL=${CHAT_MODEL:-qwen3.5:4b}
+      - MEMORY_URL=http://memory-server:8001/mcp
+      - FILE_BRIDGE_URL=http://file-bridge-server:8002/mcp
+      - AUDIT_URL=http://prompt-audit-server:8003/mcp
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./examples:/app/examples:ro
+    depends_on:
+      memory-server:
+        condition: service_healthy
+      file-bridge-server:
+        condition: service_healthy
+      prompt-audit-server:
+        condition: service_healthy
+    command: ["python", "-m", "agent.orchestrator", "--input", "examples/sample.md"]
+
+volumes:
+  memdata: {}
+  filedata: {}
+  auditdata: {}

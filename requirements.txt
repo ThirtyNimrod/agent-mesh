@@ -1,0 +1,53 @@
+# agent-mesh — top-level dependencies
+# ---------------------------------------------------------------------------
+# These are LOWER-BOUND pins for a clean first install. After your first
+# successful run, freeze exact versions into requirements.lock for reproducible
+# builds:
+#
+#     pip freeze > requirements.lock
+#
+# For Docker, prefer the per-service files (see note at the bottom) so each
+# image stays small — the servers don't need LangChain, and the orchestrator
+# doesn't need FAISS.
+# ---------------------------------------------------------------------------
+
+# --- MCP servers (memory / file-bridge / audit) ---------------------------
+mcp>=1.27,<2                 # official Model Context Protocol SDK (ships FastMCP). v2 is alpha — stay on 1.x.
+pydantic>=2.7,<3             # typed tool inputs / schema generation. v2 API.
+
+# --- memory-server: vector store -----------------------------------------
+faiss-cpu>=1.8,<2            # similarity index (IndexIDMap over IndexFlatIP = cosine on normalized vectors)
+numpy>=1.26                  # vector math; keep paired with a known-good faiss-cpu (ABI sensitivity)
+
+# --- file-bridge-server: reference converters ----------------------------
+pypandoc>=1.13               # markdown/docx/html/rst conversions (bundles a pandoc binary)
+PyMuPDF>=1.24                # PDF -> text extraction (import name: fitz)
+
+# --- orchestrator: LangGraph + Ollama ------------------------------------
+# LangChain/LangGraph move fast; treat these as lower bounds and pin exact
+# versions in the lockfile after first run.
+langgraph>=0.2              # StateGraph / ToolNode / create_react_agent
+langchain-ollama>=0.2       # ChatOllama; surfaces real prompt/eval token counts
+langchain-mcp-adapters>=0.1 # MultiServerMCPClient: connects to the 3 servers, converts MCP tools -> LangChain tools
+ollama>=0.3                 # direct Ollama client (embeddings for memory-server, health pings)
+
+# --- shared ----------------------------------------------------------------
+python-dotenv>=1.0          # load .env for local (non-Docker) runs
+
+# --- dev / test (optional: pip install -r requirements.txt only for full env) ---
+pytest>=8.0
+pytest-asyncio>=0.23        # async MCP client/server tests over the in-memory transport
+ruff>=0.5                   # lint + format
+mypy>=1.10                  # static type-checking
+
+# ---------------------------------------------------------------------------
+# Per-service split for slimmer Docker images (recommended — see
+# docs/IMPLEMENTATION_PLAN.md). If you adopt it, replace the single file above
+# with:
+#
+#   servers/requirements-memory.txt      -> mcp, pydantic, faiss-cpu, numpy, ollama
+#   servers/requirements-filebridge.txt  -> mcp, pydantic, pypandoc, PyMuPDF
+#   servers/requirements-audit.txt       -> mcp, pydantic
+#   agent/requirements.txt               -> langgraph, langchain-ollama,
+#                                           langchain-mcp-adapters, ollama, python-dotenv
+# ---------------------------------------------------------------------------
