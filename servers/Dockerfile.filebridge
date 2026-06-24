@@ -1,0 +1,15 @@
+FROM python:3.12-slim
+WORKDIR /app
+
+# Install pandoc binary for document format conversions
+RUN apt-get update && apt-get install -y pandoc && rm -rf /var/lib/apt/lists/*
+
+COPY servers/requirements-filebridge.txt .
+RUN pip install --no-cache-dir -r requirements-filebridge.txt
+
+COPY common/ ./common/
+COPY servers/file_bridge_server.py ./servers/
+COPY servers/converters/ ./servers/converters/
+
+ENV PYTHONPATH=/app
+CMD ["python", "servers/file_bridge_server.py"]

@@ -1,0 +1,42 @@
+<evaluation>
+  <qa_pair>
+    <question>Which tool would you call to persist a single LLM execution run record?</question>
+    <answer>audit_log_call</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Which tool aggregates audit metrics, tokens, latencies, and computes costs?</question>
+    <answer>audit_get_stats</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Which tool uses rolling statistics to detect anomalous model performance calls?</question>
+    <answer>audit_flag_anomaly</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Which database table stores the audit execution trace records?</question>
+    <answer>calls</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>What metric represents local compute resource usage (returned in get_stats)?</question>
+    <answer>compute_seconds</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>What statistical score is used to detect latency or token consumption anomalies?</question>
+    <answer>z-score</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>What is the default z-score threshold (k) for flagging outliers in audit_flag_anomaly?</question>
+    <answer>3.0</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Can stats be aggregated and filtered selectively by a single pipeline run ID?</question>
+    <answer>Yes</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>What notional pricing currency is configured by default for prompt audit stats?</question>
+    <answer>USD</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Is local compute cost reported as $0.0 or a non-zero value?</question>
+    <answer>$0.0</answer>
+  </qa_pair>
+</evaluation>

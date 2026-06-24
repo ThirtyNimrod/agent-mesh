@@ -1,0 +1,11 @@
+FROM python:3.12-slim
+WORKDIR /app
+
+COPY servers/requirements-memory.txt .
+RUN pip install --no-cache-dir -r requirements-memory.txt
+
+COPY common/ ./common/
+COPY servers/memory_server.py servers/memory_store.py ./servers/
+
+ENV PYTHONPATH=/app
+CMD ["python", "servers/memory_server.py"]

@@ -1,0 +1,42 @@
+<evaluation>
+  <qa_pair>
+    <question>Which database serves as the persistent source of truth for the memory server?</question>
+    <answer>SQLite</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>What library is used by the memory server for index-based vector similarity searches?</question>
+    <answer>FAISS</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Which embedding model is used by default in the memory server settings?</question>
+    <answer>nomic-embed-text</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>What is the default vector dimension size configured for the nomic embedding model?</question>
+    <answer>768</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>What inner product configuration is used to match cosine similarity in the FAISS index?</question>
+    <answer>IndexIDMap(IndexFlatIP)</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>If the memory FAISS index is deleted from disk, does it cause data loss or does it rebuild from SQLite?</question>
+    <answer>rebuild from SQLite</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Is memory_delete idempotent when deleting a non-existent or already deleted record?</question>
+    <answer>Yes</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Which tool would you call to fetch memories sorted by their similarity score?</question>
+    <answer>memory_search</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Which tool provides paginated access to list all stored memories in the database?</question>
+    <answer>memory_list</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>What is the maximum number of tags that can be passed to memory_add?</question>
+    <answer>20</answer>
+  </qa_pair>
+</evaluation>

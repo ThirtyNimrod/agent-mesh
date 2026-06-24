@@ -1,0 +1,4 @@
+mcp>=1.27,<2
+pydantic>=2.7,<3
+pypandoc>=1.13
+PyMuPDF>=1.24
