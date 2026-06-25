@@ -61,8 +61,6 @@ async def audited_invoke(
         else:
             logger.warning("audit_log_call tool not found in toolset; skipping audit log.")
     except Exception as ae:
-        # Graceful degradation for audit server failures
-        logger.error(f"Failed to log call stats to audit-server: {ae}")
-        print(f"Warning: Failed to log call stats to audit-server: {ae}")
+        logger.error("Failed to log call stats to audit-server: %s", ae)
         
     return resp

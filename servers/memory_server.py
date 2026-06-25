@@ -1,15 +1,17 @@
 import sys
+import logging
 import httpx
 from typing import Annotated
 from pydantic import Field
 from mcp.server.fastmcp import FastMCP
 from common.config import settings
+from common.logging_setup import setup_logging
 from common.responses import ResponseFormat, render
 from common.errors import tool_error
 import servers.memory_store as store
 
-# Create FastMCP server instance
 mcp = FastMCP("memory_mcp", stateless_http=True, json_response=True)
+logger = logging.getLogger(__name__)
 
 @mcp.tool(
     name="memory_add",
@@ -24,19 +26,23 @@ mcp = FastMCP("memory_mcp", stateless_http=True, json_response=True)
 async def memory_add(
     text: Annotated[str, Field(min_length=1, max_length=20000, description="Content to remember")],
     metadata: Annotated[dict | None, Field(default=None, description="Arbitrary JSON metadata")] = None,
-    tags: Annotated[list[str] | None, Field(default=None, max_items=20, description="Optional tags")] = None
+    tags: Annotated[list[str] | None, Field(default=None, max_length=20, description="Optional tags")] = None
 ) -> str:
     """Embed and persist a memory; returns its id and creation time."""
+    logger.info("memory_add called: text_length=%d, tags=%s", len(text), tags)
     try:
         rec = store.add(text, metadata or {}, tags or [])
+        logger.info("memory_add succeeded: id=%s", rec.get("id"))
         return render(
             rec,
             ResponseFormat.JSON,
             lambda p: f"Stored memory #{p['id']}."
         )
     except httpx.HTTPError:
+        logger.error("memory_add: embedding model '%s' unreachable", settings().embed_model)
         return tool_error(f"Embedding model '{settings().embed_model}' unreachable; check OLLAMA_URL.")
     except Exception as e:
+        logger.error("memory_add failed: %s", e)
         return tool_error(str(e))
 
 @mcp.tool(
@@ -56,6 +62,7 @@ async def memory_search(
     response_format: Annotated[ResponseFormat, Field(default=ResponseFormat.MARKDOWN, description="Output format")] = ResponseFormat.MARKDOWN
 ) -> str:
     """Return the most similar memories to a query, ranked by cosine similarity."""
+    logger.info("memory_search called: query_length=%d, limit=%d", len(query), limit)
     try:
         results = store.search(query, limit=limit, min_score=min_score)
         payload = {
@@ -77,8 +84,10 @@ async def memory_search(
             
         return render(payload, response_format, to_markdown)
     except httpx.HTTPError:
+        logger.error("memory_search: embedding model '%s' unreachable", settings().embed_model)
         return tool_error(f"Embedding model '{settings().embed_model}' unreachable; check OLLAMA_URL.")
     except Exception as e:
+        logger.error("memory_search failed: %s", e)
         return tool_error(str(e))
 
 @mcp.tool(
@@ -144,6 +153,7 @@ async def memory_delete(
         return tool_error(str(e))
 
 if __name__ == "__main__":
+    setup_logging("memory_server")
     store.init_db()
     store.init_index()
     if "--stdio" in sys.argv:
@@ -151,4 +161,5 @@ if __name__ == "__main__":
     else:
         mcp.settings.host = "0.0.0.0"
         mcp.settings.port = settings().memory_port
-        mcp.run(transport="streamable_http")
+        logger.info("Starting memory-server on port %d", settings().memory_port)
+        mcp.run(transport="streamable-http")

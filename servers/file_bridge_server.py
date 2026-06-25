@@ -1,17 +1,19 @@
 import os
 import sys
+import logging
 import base64
 from pathlib import Path
 from typing import Annotated
 from pydantic import Field
 from mcp.server.fastmcp import FastMCP
 from common.config import settings
+from common.logging_setup import setup_logging
 from common.responses import ResponseFormat, render
 from common.errors import tool_error
 import servers.converters as conv
 
-# Initialize FastMCP instance
 mcp = FastMCP("file_bridge_mcp", stateless_http=True, json_response=True)
+logger = logging.getLogger(__name__)
 
 def _safe_path(p: str) -> Path:
     """Resolves and validates paths to prevent directory traversal outside allowed files_dir."""
@@ -43,6 +45,7 @@ async def filebridge_convert_file(
     response_format: Annotated[ResponseFormat, Field(default=ResponseFormat.MARKDOWN, description="Output format")] = ResponseFormat.MARKDOWN
 ) -> str:
     """Convert input bytes/file from one format to another and return result."""
+    logger.info("filebridge_convert_file called: source_path=%s, to_format=%s", source_path, to_format)
     try:
         # Validate mutual exclusivity of source inputs
         if (source_path is None) == (source_b64 is None):
@@ -128,8 +131,10 @@ async def filebridge_convert_file(
                 return p["text"]
             return f"Binary output written to `{p['output_path']}` ({p['bytes_out']} bytes)."
 
+        logger.info("filebridge_convert_file succeeded: %s -> %s, bytes=%d", inferred_from, target_fmt, len(out_bytes))
         return render(payload, response_format, to_markdown)
     except Exception as e:
+        logger.error("filebridge_convert_file failed: %s", e)
         return tool_error(str(e))
 
 @mcp.tool(
@@ -212,9 +217,11 @@ async def filebridge_preview_output(
         return tool_error(str(e))
 
 if __name__ == "__main__":
+    setup_logging("file_bridge_server")
     if "--stdio" in sys.argv:
         mcp.run()
     else:
         mcp.settings.host = "0.0.0.0"
         mcp.settings.port = settings().file_bridge_port
-        mcp.run(transport="streamable_http")
+        logger.info("Starting file-bridge-server on port %d", settings().file_bridge_port)
+        mcp.run(transport="streamable-http")

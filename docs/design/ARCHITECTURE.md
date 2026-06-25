@@ -11,7 +11,7 @@ This document explains *how* `agent-mesh` is put together and *why* the key deci
 ```mermaid
 flowchart LR
     subgraph host["Host (Windows + RTX 2070)"]
-        OL["Ollama :11434<br/>qwen3.5:4b<br/>nomic-embed-text"]
+        OL["Ollama :11434<br/>llama3.2:latest<br/>nomic-embed-text"]
     end
     subgraph net["Docker network: agent-mesh"]
         O["orchestrator"]
@@ -55,7 +55,7 @@ MCP defines two standard transports:
 
 > Note: the older HTTP+SSE transport is **deprecated** in favor of Streamable HTTP. We do not use SSE.
 
-Because the requirement is **separate containers brought up by `docker compose`**, the servers must be reachable over the network — stdio (subprocess-per-client) does not fit a multi-container topology. So all three servers run `mcp.run(transport="streamable_http")` and the orchestrator connects by URL.
+Because the requirement is **separate containers brought up by `docker compose`**, the servers must be reachable over the network — stdio (subprocess-per-client) does not fit a multi-container topology. So all three servers run `mcp.run(transport="streamable-http")` and the orchestrator connects by URL.
 
 We still support **stdio as a dev convenience** (a `--stdio` flag) so a single server can be driven directly by the MCP Inspector or Claude Desktop during development, with no Docker.
 
@@ -87,7 +87,7 @@ flowchart TD
 
 This is the most important *application-level* decision, and it is driven by the model size.
 
-`qwen3.5:4b` supports native tool-calling, but a 4B model is **not** a reliable autonomous planner for a multi-step, multi-server workflow. Letting it freely decide which of a dozen tools to call, in what order, invites loops, skipped steps, and malformed tool arguments.
+`llama3.2:latest` supports native tool-calling, but a 4B model is **not** a reliable autonomous planner for a multi-step, multi-server workflow. Letting it freely decide which of a dozen tools to call, in what order, invites loops, skipped steps, and malformed tool arguments.
 
 So the **primary** orchestrator is a **deterministic `StateGraph`**: the *pipeline shape* is fixed in code, and the LLM is used only for the genuinely generative steps.
 
@@ -228,7 +228,13 @@ class Converter(Protocol):
         ...
 ```
 
-- The public repo ships a **reference converter** built on public tools (pandoc via `pypandoc` for doc/markdown/html, PyMuPDF for PDF→text, plain passthrough for txt) so the demo runs standalone.
+- The public repo ships **reference converters** built on public tools:
+  - **`markdown_native`** — pure-Python regex converter for `markdown→text`. No external binary needed; ships first in the registry so it takes the `(markdown, text)` pair without pandoc.
+  - **`pandoc`** — via `pypandoc` for `docx`, `html`, `rst` conversions that require the full pandoc binary.
+  - **`pdf`** — PyMuPDF for `pdf→text`.
+  - **`passthrough`** — identity converter for `txt→text` and `markdown→markdown`.
+
+  This means the demo runs out-of-the-box for `.md` and `.txt` inputs even without pandoc installed. Pandoc is only required for `.docx`/`.html`/`.rst` inputs.
 - A private project (e.g. *adla-badli*) implementing the same `Converter` protocol can be **dropped into `servers/converters/` and registered** with no change to the MCP surface. The tool schema (`filebridge_convert_file`, etc.) stays identical; only the engine behind it changes.
 - `filebridge_list_formats` reflects whatever converters are registered, so the advertised format matrix is always accurate.
 

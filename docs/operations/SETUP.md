@@ -13,10 +13,10 @@ The defaults in this repo are tuned for this machine, but nothing here is exotic
 | OS | Windows 10/11 | WSL2 enabled (Docker Desktop backend) |
 | CPU | Intel i7-9750H (6c/12t) | Fine for the servers + embeddings |
 | RAM | 16 GB | Comfortable; ~6–8 GB used under load |
-| GPU | RTX 2070 Max-Q, **8 GB VRAM** | Holds `qwen3.5:4b` (~3.4 GB) + embeddings with headroom |
+| GPU | RTX 2070 Max-Q, **8 GB VRAM** | Holds `llama3.2:latest` (~3.4 GB) + embeddings with headroom |
 | Model store | `D:\.ollama\models` | Custom path via `OLLAMA_MODELS` |
 
-> **VRAM budget.** `qwen3.5:4b` at Q4_K_M needs roughly 3.4 GB plus a bit for context; `nomic-embed-text` is ~275 MB. You stay well under 8 GB, leaving room for the desktop. Thinking mode is off by default on the small Qwen3.5 models, which keeps latency down.
+> **VRAM budget.** `llama3.2:latest` at Q4_K_M needs roughly 3.4 GB plus a bit for context; `nomic-embed-text` is ~275 MB. You stay well under 8 GB, leaving room for the desktop. Thinking mode is off by default on the small Qwen3.5 models, which keeps latency down.
 
 ---
 
@@ -59,7 +59,7 @@ curl http://localhost:11434/api/tags    # should return JSON
 ## 4. Pull the models (one time)
 
 ```bash
-ollama pull qwen3.5:4b          # ~3.4 GB — the reasoning model
+ollama pull llama3.2:latest          # ~3.4 GB — the reasoning model
 ollama pull nomic-embed-text    # ~275 MB — embeddings for memory-server
 ```
 
@@ -102,27 +102,53 @@ Shut everything down with `Ctrl-C`, then `docker compose down` (add `-v` to also
 
 ---
 
-## Dev mode (stdio)
+## Dev mode (no Docker)
 
-You don't need Docker to iterate on a single server. Each server also speaks **stdio**, which is what the MCP Inspector and desktop MCP clients expect for local tools.
+You don't need Docker to run the full mesh locally. Two options:
 
-Create a host virtualenv and install deps once:
+### Option A — start/stop scripts (recommended)
+
+The repo ships PowerShell scripts that start all three servers as background processes, save their PIDs, and write logs to `logs/`.
+
+```powershell
+# Start all three servers (hidden background processes)
+.\start-servers.ps1
+
+# Or with minimized windows so you can see their output
+.\start-servers.ps1 -Visible
+
+# Stop all three
+.\stop-servers.ps1
+```
+
+`.bat` wrappers (`start-servers.bat`, `stop-servers.bat`) are provided for double-click convenience — they call the PS1 scripts with `-ExecutionPolicy Bypass` so no policy change is needed.
+
+Each server writes its own timestamped log file to `logs/` (e.g. `logs/2026-06-25_14-30-00_memory_server.log`). The `logs/` directory is gitignored.
+
+**Prerequisites for this path:** Python `.venv` set up, and in `.env` set `OLLAMA_URL=http://localhost:11434` (the default `host.docker.internal` address is only reachable from inside Docker).
 
 ```bash
 python -m venv .venv
-# Windows:  .venv\Scripts\activate
-# macOS/Linux:  source .venv/bin/activate
+.venv\Scripts\activate        # Windows
 pip install -r requirements.txt
 ```
 
-Run a server over stdio (for bare-metal runs, set `OLLAMA_URL=http://localhost:11434`):
+Then run the orchestrator:
 
 ```bash
-# example: the memory server
+python -m agent.orchestrator --input examples/sample.md
+```
+
+### Option B — single server over stdio (MCP Inspector / Claude Desktop)
+
+Each server also speaks **stdio**, which desktop MCP clients expect.
+
+```bash
+# For bare-metal runs, set OLLAMA_URL=http://localhost:11434 in .env first
 python -m servers.memory_server --stdio
 ```
 
-Then attach the **MCP Inspector** to explore tools, fire calls, and read responses interactively:
+Then attach the **MCP Inspector**:
 
 ```bash
 npx @modelcontextprotocol/inspector python -m servers.memory_server --stdio
@@ -140,13 +166,13 @@ The Inspector lets you list each tool, see its input schema, and invoke it — t
 
 **`host.docker.internal` doesn't resolve at all (older Linux Docker).** Make sure you're using the provided `docker-compose.yml` unmodified — it includes the `extra_hosts` mapping. As a fallback you can use the host's LAN IP in `OLLAMA_URL`.
 
-**Out of VRAM / model won't load.** Close other GPU-heavy apps. `qwen3.5:4b` should fit 8 GB comfortably; if you swapped in a larger model, drop back down. You can watch usage with `nvidia-smi`.
+**Out of VRAM / model won't load.** Close other GPU-heavy apps. `llama3.2:latest` should fit 8 GB comfortably; if you swapped in a larger model, drop back down. You can watch usage with `nvidia-smi`.
 
 **Port already in use (`8001`/`8002`/`8003`).** Change the relevant `*_PORT` in `.env`. Note these are in-network ports; they're only exposed to your host if you uncomment a `ports:` block.
 
 **`faiss-cpu` / NumPy import or ABI error in `memory-server`.** This pair is version-sensitive. Use a known-good combination (a recent `faiss-cpu` with `numpy>=1.26`) and, once it works, freeze it: `pip freeze > requirements.lock`.
 
-**`pypandoc` can't find pandoc.** The wheel normally bundles a pandoc binary; if your platform's doesn't, install pandoc separately (or `pypandoc.download_pandoc()` once) so the file-bridge converters work.
+**`pypandoc` can't find pandoc.** Markdown (`.md`) and plain text (`.txt`) files are converted by a built-in pure-Python converter that does **not** need pandoc. Pandoc is only required for `.docx`, `.html`, and `.rst` inputs. If you need those formats, install pandoc separately (`winget install JohnMacFarlane.Pandoc` on Windows, or `pypandoc.download_pandoc()` from Python) and it will be picked up automatically.
 
 **The orchestrator starts before the servers are ready.** It shouldn't — the `depends_on … condition: service_healthy` gates it on the healthchecks. If you edited the compose file, make sure those conditions are intact.
 

@@ -1,14 +1,16 @@
 import sys
+import logging
 from typing import Annotated, Literal
 from pydantic import Field
 from mcp.server.fastmcp import FastMCP
 from common.config import settings
+from common.logging_setup import setup_logging
 from common.responses import ResponseFormat, render
 from common.errors import tool_error
 import servers.audit_store as store
 
-# Initialize FastMCP instance
 mcp = FastMCP("prompt_audit_mcp", stateless_http=True, json_response=True)
+logger = logging.getLogger(__name__)
 
 @mcp.tool(
     name="audit_log_call",
@@ -31,6 +33,10 @@ async def audit_log_call(
     metadata: Annotated[dict | None, Field(default=None, description="Optional caller metadata")] = None
 ) -> str:
     """Persist one LLM-call record to SQLite; returns the record id."""
+    logger.info(
+        "audit_log_call: run_id=%s, step=%s, model=%s, tokens_in=%d, tokens_out=%d, latency_ms=%d, quality=%.3f",
+        run_id, step, model, tokens_in, tokens_out, latency_ms, quality_score or 0.0,
+    )
     try:
         rec_id = store.log_call(
             run_id=run_id,
@@ -42,8 +48,10 @@ async def audit_log_call(
             quality_score=quality_score,
             metadata=metadata
         )
+        logger.info("audit_log_call succeeded: id=%s", rec_id)
         return render({"id": rec_id}, ResponseFormat.JSON, lambda p: f"Logged call #{p['id']}.")
     except Exception as e:
+        logger.error("audit_log_call failed: %s", e)
         return tool_error(str(e))
 
 @mcp.tool(
@@ -139,10 +147,12 @@ async def audit_flag_anomaly(
         return tool_error(str(e))
 
 if __name__ == "__main__":
+    setup_logging("prompt_audit_server")
     store.init_db()
     if "--stdio" in sys.argv:
         mcp.run()
     else:
         mcp.settings.host = "0.0.0.0"
         mcp.settings.port = settings().audit_port
-        mcp.run(transport="streamable_http")
+        logger.info("Starting prompt-audit-server on port %d", settings().audit_port)
+        mcp.run(transport="streamable-http")

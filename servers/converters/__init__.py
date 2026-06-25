@@ -31,8 +31,12 @@ def find(from_fmt: str, to_fmt: str) -> Optional[Converter]:
             return c
     return None
 
-# Import submodules to trigger automatic registration
+# Import submodules to trigger automatic registration.
+# Order matters: the first converter that matches a (from, to) pair wins.
+# markdown_converter must precede pandoc_converter so markdown->text works
+# without pandoc installed.
 import servers.converters.passthrough_converter
 import servers.converters.pdf_converter
+import servers.converters.markdown_converter
 import servers.converters.pandoc_converter
 

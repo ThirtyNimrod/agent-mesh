@@ -2,7 +2,7 @@
 
 > A public toolkit of production-ready **MCP (Model Context Protocol) servers** plus a **LangGraph orchestrator** that wires them together into a single, runnable document-processing pipeline.
 
-`agent-mesh` is three small, focused MCP servers — **memory**, **file conversion**, and **prompt/LLM auditing** — and one demo agent that uses all three over a common protocol. It runs locally on a laptop GPU against an Ollama model (`qwen3.5:4b`), and the whole mesh comes up with a single command.
+`agent-mesh` is three small, focused MCP servers — **memory**, **file conversion**, and **prompt/LLM auditing** — and one demo agent that uses all three over a common protocol. It runs locally on a laptop GPU against an Ollama model (`llama3.2:latest`), and the whole mesh comes up with a single command.
 
 The name says the intent: a *mesh* of independent agents/services that talk to each other through one shared protocol. That is exactly what MCP enables.
 
@@ -27,7 +27,7 @@ It is built to demonstrate three engineering concerns that matter in real LLM sy
 ```mermaid
 flowchart TD
     subgraph HOST["🖥️  Host machine (Windows / RTX 2070)"]
-        OLLAMA["Ollama runtime<br/>qwen3.5:4b + nomic-embed-text<br/>:11434"]
+        OLLAMA["Ollama runtime<br/>llama3.2:latest + nomic-embed-text<br/>:11434"]
     end
 
     subgraph COMPOSE["🐳  docker compose network: agent-mesh"]
@@ -60,7 +60,7 @@ For the full rationale (transport choice, deterministic vs. autonomous orchestra
 | Server | Tools | Backend | Purpose |
 |---|---|---|---|
 | **`memory-server`** | `memory_add`, `memory_search`, `memory_list`, `memory_delete` | FAISS (vectors) + SQLite (text/metadata) | Persistent, searchable vector memory |
-| **`file-bridge-server`** | `filebridge_convert_file`, `filebridge_list_formats`, `filebridge_preview_output` | Pluggable converters (pandoc / PyMuPDF / markdown) | Normalize documents to clean text |
+| **`file-bridge-server`** | `filebridge_convert_file`, `filebridge_list_formats`, `filebridge_preview_output` | Pluggable converters (markdown-native / PyMuPDF / pandoc) | Normalize documents to clean text |
 | **`prompt-audit-server`** | `audit_log_call`, `audit_get_stats`, `audit_flag_anomaly` | SQLite | Log + analyze every LLM call; produce cost reports |
 
 Full input/output schemas, annotations, and error contracts for every tool live in [`docs/SERVER_SPECS.md`](docs/SERVER_SPECS.md).
@@ -76,7 +76,7 @@ sequenceDiagram
     participant U as User
     participant O as Orchestrator (LangGraph)
     participant F as file-bridge-server
-    participant L as Ollama (qwen3.5:4b)
+    participant L as Ollama (llama3.2:latest)
     participant M as memory-server
     participant A as prompt-audit-server
 
@@ -111,8 +111,8 @@ docker compose up
 **1. Pull the models on the host (one time):**
 
 ```bash
-ollama pull qwen3.5:4b          # ~3.4 GB — the reasoning model
-ollama pull nomic-embed-text    # ~275 MB — embeddings for memory-server
+ollama pull llama3.2:latest      # ~2.0 GB — the reasoning model
+ollama pull nomic-embed-text     # ~275 MB — embeddings for memory-server
 ```
 
 **2. Make sure Ollama is listening for containers.** On Windows, set the environment variable `OLLAMA_HOST=0.0.0.0:11434` and restart Ollama so the compose network can reach it. (Your custom model path `D:\.ollama\models` is set via `OLLAMA_MODELS` — see SETUP.)
@@ -151,34 +151,46 @@ Each server also runs over **stdio** for local iteration with the MCP Inspector 
 
 ```
 agent-mesh/
-├── README.md                     # you are here
-├── requirements.txt              # annotated dependencies
+├── README.md
+├── requirements.txt
 ├── .env.example                  # configuration template
 ├── docker-compose.yml            # spins up 3 servers + orchestrator
-├── common/                       # shared helpers (config, formatting, errors)
-│   ├── config.py
-│   ├── responses.py              # JSON/Markdown response helpers + pagination
+├── start-servers.ps1             # start all three MCP servers (local dev)
+├── start-servers.bat             # .bat wrapper for PowerShell-policy-free double-click
+├── stop-servers.ps1              # stop all three MCP servers
+├── stop-servers.bat
+├── common/                       # shared helpers
+│   ├── config.py                 # Pydantic Settings; single source of truth
+│   ├── logging_setup.py          # per-run timestamped log files in logs/
+│   ├── responses.py              # JSON/Markdown response formatting
 │   └── errors.py
 ├── servers/
-│   ├── memory_server.py          # ~150 LOC
-│   ├── file_bridge_server.py     # ~80 LOC new code (converters pluggable)
-│   ├── prompt_audit_server.py    # ~120 LOC
-│   └── converters/               # reference converters; drop-in point for adla-badli
+│   ├── memory_server.py
+│   ├── file_bridge_server.py
+│   ├── prompt_audit_server.py
+│   └── converters/               # pluggable converter registry
+│       ├── markdown_converter.py # pure-Python markdown->text (no pandoc needed)
+│       ├── pandoc_converter.py   # docx/html/rst via pandoc binary
+│       ├── pdf_converter.py      # PDF via PyMuPDF
+│       └── passthrough_converter.py
 ├── agent/
-│   └── orchestrator.py           # LangGraph demo agent
+│   ├── orchestrator.py           # LangGraph pipeline + ReAct variant
+│   ├── audited.py                # LLM call wrapper (timing, quality, audit log)
+│   ├── clients.py                # MCP client + ChatOllama factory
+│   └── quality.py                # deterministic 4-signal quality scorer
 ├── examples/
 │   └── sample.md                 # demo input
 ├── tests/                        # unit + integration + e2e
+├── logs/                         # per-run log files (gitignored)
 ├── evals/                        # MCP-style evaluation suites (per server)
 └── docs/
-    ├── ARCHITECTURE.md
-    ├── TECH_STACK.md
-    ├── REQUIREMENTS.md
-    ├── SERVER_SPECS.md
-    ├── IMPLEMENTATION_PLAN.md
-    ├── MILESTONES.md
-    ├── TESTING_AND_EVALUATION.md
-    └── SETUP.md
+    ├── design/
+    │   ├── ARCHITECTURE.md
+    │   ├── SERVER_SPECS.md
+    │   └── TECH_STACK.md
+    └── operations/
+        ├── SETUP.md
+        └── TESTING_AND_EVALUATION.md
 ```
 
 ---
@@ -187,14 +199,11 @@ agent-mesh/
 
 | Document | What's in it |
 |---|---|
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | System topology, transport rationale, data flow, deployment, failure modes, security |
-| [`docs/TECH_STACK.md`](docs/TECH_STACK.md) | Every technology, version, why it was chosen, alternatives considered |
-| [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md) | Functional + non-functional requirements, hardware targets, acceptance criteria |
-| [`docs/SERVER_SPECS.md`](docs/SERVER_SPECS.md) | Per-tool input/output schemas, annotations, errors, examples |
-| [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) | Phase-by-phase build, code skeletons, docker-compose, file-by-file plan |
-| [`docs/MILESTONES.md`](docs/MILESTONES.md) | M0–M6 roadmap with deliverables and exit criteria |
-| [`docs/TESTING_AND_EVALUATION.md`](docs/TESTING_AND_EVALUATION.md) | Test pyramid, MCP Inspector, evaluation harness |
-| [`docs/SETUP.md`](docs/SETUP.md) | OS-specific setup (Windows + Ollama + Docker), troubleshooting |
+| [`docs/design/ARCHITECTURE.md`](docs/design/ARCHITECTURE.md) | System topology, transport rationale, data flow, deployment, failure modes, security |
+| [`docs/design/TECH_STACK.md`](docs/design/TECH_STACK.md) | Every technology, version, why it was chosen, alternatives considered |
+| [`docs/design/SERVER_SPECS.md`](docs/design/SERVER_SPECS.md) | Per-tool input/output schemas, annotations, errors, examples |
+| [`docs/operations/SETUP.md`](docs/operations/SETUP.md) | OS-specific setup (Windows + Ollama + Docker + local scripts), troubleshooting |
+| [`docs/operations/TESTING_AND_EVALUATION.md`](docs/operations/TESTING_AND_EVALUATION.md) | Test pyramid, MCP Inspector, evaluation harness |
 
 ---
 
@@ -203,10 +212,12 @@ agent-mesh/
 - **Servers:** Python 3.12 · [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk) (`FastMCP`) · Pydantic v2 · Streamable HTTP transport
 - **Memory:** FAISS (`faiss-cpu`) + SQLite · embeddings via Ollama `nomic-embed-text`
 - **Orchestrator:** LangGraph · `langchain-ollama` (`ChatOllama`) · `langchain-mcp-adapters` (`MultiServerMCPClient`)
-- **Model:** `qwen3.5:4b` on Ollama (native tool-calling, 256K context, runs in <4 GB VRAM)
-- **Packaging:** Docker Compose
+- **Model:** `llama3.2:latest` on Ollama (~2 GB, runs comfortably on 8 GB VRAM)
+- **Converters:** markdown-native (no pandoc needed for `.md`), PyMuPDF (PDF), pandoc (docx/html/rst)
+- **Logging:** per-run timestamped log files in `logs/` via `common/logging_setup.py`
+- **Packaging:** Docker Compose (full mesh) or `start-servers.ps1` (local dev)
 
-Full details and version pins in [`docs/TECH_STACK.md`](docs/TECH_STACK.md) and [`requirements.txt`](requirements.txt).
+Full details and version pins in [`docs/design/TECH_STACK.md`](docs/design/TECH_STACK.md) and [`requirements.txt`](requirements.txt).
 
 ---
 

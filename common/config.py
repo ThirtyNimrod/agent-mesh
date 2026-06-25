@@ -11,7 +11,7 @@ except ImportError:
 
 class Settings(BaseModel):
     ollama_url: str = Field(default_factory=lambda: os.getenv("OLLAMA_URL", "http://host.docker.internal:11434"))
-    chat_model: str = Field(default_factory=lambda: os.getenv("CHAT_MODEL", "qwen3.5:4b"))
+    chat_model: str = Field(default_factory=lambda: os.getenv("CHAT_MODEL", "llama3.2:latest"))
     embed_model: str = Field(default_factory=lambda: os.getenv("EMBED_MODEL", "nomic-embed-text"))
     embed_dim: int = Field(default_factory=lambda: int(os.getenv("EMBED_DIM", "768")))
     

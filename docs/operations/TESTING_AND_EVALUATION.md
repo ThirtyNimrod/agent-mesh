@@ -18,9 +18,15 @@ How `agent-mesh` is verified: a test pyramid for correctness, the MCP Inspector 
 
 Test the pure logic directly, and tools via MCP's **in-memory transport** (no HTTP, no containers).
 
-- **memory:** `embed` normalization; `add`/`search` ranking (a query nearest to a known item); `delete` removes from both stores; **rebuild-from-SQLite** produces an index that returns the same neighbors.
-- **file-bridge:** each reference converter on a tiny fixture; registry `all_pairs()`; `_safe_path` rejects `../` traversal; unsupported pair → structured error.
-- **audit:** `stats` aggregation arithmetic (counts, averages, p95); `cost_block` matches the price table exactly; `z_anomalies` flags a planted outlier and ignores normal values; empty/edge inputs don't crash.
+Current unit test files and what they cover:
+
+| File | Coverage |
+|---|---|
+| `tests/test_memory.py` | `add`/`search` ranking; `delete` removes from both stores; rebuild-from-SQLite produces correct neighbors |
+| `tests/test_audit.py` | `stats` aggregation (counts, averages, p95); `cost_block` matches price table; `z_anomalies` flags planted outlier |
+| `tests/test_filebridge.py` | `_safe_path` rejects `../` traversal; passthrough converter; `all_pairs()` registry |
+| `tests/test_converters.py` | All converter engines; `markdown->text` works **without pandoc**; registry `find`/`all_pairs`; pandoc tests auto-skipped if binary absent |
+| `tests/test_orchestrator_utils.py` | `parse_text` (plain string, JSON, MCP content-block list, empty); `parse_points` (JSON, fenced, bullet fallback); `parse_memory_id` (string, content block, missing key) |
 
 ```python
 # example: in-memory tool test (pytest-asyncio)
