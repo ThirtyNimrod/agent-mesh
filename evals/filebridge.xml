@@ -1,0 +1,42 @@
+<evaluation>
+  <qa_pair>
+    <question>Which tool is used to convert files from one format to another?</question>
+    <answer>filebridge_convert_file</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Which engine converter handles PDF text extraction?</question>
+    <answer>pymupdf</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Which engine converter handles docx and markup file conversions?</question>
+    <answer>pandoc</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Which tool is called to see the registry list of all supported conversion pairs?</question>
+    <answer>filebridge_list_formats</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Which tool would you call to preview only the first few characters of a converted document?</question>
+    <answer>filebridge_preview_output</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>How many source arguments can be provided to filebridge_convert_file simultaneously (path and base64)?</question>
+    <answer>one</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Is a directory traversal attempt outside FILES_DIR blocked by the file bridge server?</question>
+    <answer>Yes</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>What Python package is used under the hood by the pymupdf converter to parse PDFs?</question>
+    <answer>fitz</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>What is the default max characters previewed by the filebridge_preview_output tool?</question>
+    <answer>1000</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Can a private conversion engine be registered without changing the MCP tool surface?</question>
+    <answer>Yes</answer>
+  </qa_pair>
+</evaluation>

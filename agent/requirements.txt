@@ -1,0 +1,6 @@
+langgraph>=0.2
+langchain-ollama>=0.2
+langchain-mcp-adapters>=0.1
+ollama>=0.3
+python-dotenv>=1.0
+pydantic>=2.7,<3
