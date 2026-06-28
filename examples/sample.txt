@@ -1,0 +1,45 @@
+QUARTERLY ENGINEERING UPDATE — Q2
+Platform Reliability Team
+
+SUMMARY
+
+This quarter the Platform Reliability team focused on three things: cutting the
+median API latency, reducing on-call burden, and finishing the migration off the
+legacy job scheduler. Two of the three goals were met in full; the scheduler
+migration is at 80 percent and will carry into next quarter.
+
+LATENCY
+
+Median API response time dropped from 480 ms to 210 ms after we introduced a
+read-through cache in front of the primary database and moved image thumbnailing
+to a background worker. The 95th-percentile latency, which is the number most
+visible to customers, fell from 1.9 s to 720 ms. We consider the latency goal
+fully met. The one regression we are watching is cold-start latency on the
+thumbnailing workers, which can spike to 4 s after a deploy; a warm-pool fix is
+scheduled for early next quarter.
+
+ON-CALL
+
+Paging volume fell by 41 percent quarter over quarter, from an average of 22
+pages per week to 13. Most of that reduction came from two changes: we raised the
+alert threshold on a noisy disk-usage check that was firing on transient spikes,
+and we automated the most common remediation — restarting a stuck consumer —
+which previously required a human at 3 a.m. The team agreed that anything below
+10 pages per week is the target for next quarter.
+
+SCHEDULER MIGRATION
+
+The migration from the legacy cron-based scheduler to the new queue-driven system
+is 80 percent complete. All recurring jobs have been moved; what remains are
+roughly 30 ad-hoc jobs owned by other teams, which require coordination before
+they can be cut over. The hard deadline for full migration is the end of next
+quarter, because the legacy scheduler's host is being decommissioned at that
+time. The main risk is that the dependent teams deprioritize the work, so we are
+escalating to engineering leadership to get the remaining jobs scheduled.
+
+NEXT QUARTER
+
+Priorities for next quarter are: finish the scheduler migration, ship the
+worker warm-pool fix, and bring weekly paging volume under 10. We will also begin
+a review of our backup-restore procedure, which has not been exercised in over a
+year.

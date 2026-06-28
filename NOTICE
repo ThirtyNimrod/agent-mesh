@@ -1,0 +1,51 @@
+agent-mesh — NOTICE
+===================
+
+This project is a clean-room showcase. It contains only original code and
+public, open-source dependencies. It is released under the MIT License (see the
+LICENSE file).
+
+PURPOSE
+-------
+agent-mesh is inspired by, but shares NO source code, data, prompts, schemas,
+database contents, configuration, or model weights with, any private or
+proprietary project. The designs here are generic reimplementations of
+widely-known, publicly-documented patterns (vector memory over a database;
+file-format conversion; logging and cost accounting for model calls). Any
+resemblance to a private system is at the level of general engineering ideas,
+not implementation.
+
+COMPONENTS
+----------
+  memory-server
+      A generic vector-memory store (FAISS for similarity search + SQLite as
+      the system of record) exposed over the Model Context Protocol. It does
+      not reproduce any proprietary memory system's code, schema, embeddings,
+      or stored data.
+
+  file-bridge-server
+      A thin MCP wrapper around a pluggable file-conversion interface. It ships
+      only generic reference converters built on public libraries (a
+      pure-Python Markdown-to-text converter, PyMuPDF for PDF text extraction,
+      and pandoc for document formats). Any private or proprietary conversion
+      logic can be added behind the documented `Converter` interface WITHOUT
+      modifying this public repository and WITHOUT being distributed with it.
+
+  prompt-audit-server
+      A generic logger for LLM call metadata — token counts, latency, and a
+      transparent, heuristic quality score — backed by SQLite, with simple
+      statistics and a configurable notional cost table. It contains no
+      proprietary prompts, evaluation rubrics, or pricing data.
+
+THIRD-PARTY SOFTWARE
+--------------------
+This project depends on third-party, open-source packages (including the MCP
+Python SDK, FAISS, LangGraph, LangChain integrations, Pydantic, PyMuPDF, and
+others). Each remains the property of its respective authors and is governed by
+its own license. No third-party source is vendored into this repository; all
+dependencies are fetched from their official package indexes at install time.
+
+SUMMARY
+-------
+Nothing in this repository exposes proprietary intellectual property. It is safe
+to read, fork, run, and share under the terms of the MIT License.
